@@ -6,6 +6,8 @@ struct FocusCheckInView: View {
 
     let history: FocusHistory
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.calendar) private var calendar
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage("readsSleepFromHealth") private var readsSleepFromHealth = false
     @State private var minutes: Int? = 45
     @State private var energy: FocusEnergy?
@@ -25,8 +27,8 @@ struct FocusCheckInView: View {
             Form {
                 if history.failed {
                     Section {
-                        Label("Impossibile accedere allo storico locale.", systemImage: "exclamationmark.circle")
-                        Button("Riprova", action: refreshHistory)
+                        Label("Can’t open your local history.", systemImage: "exclamationmark.circle")
+                        Button("Try again", action: refreshHistory)
                     }
                 }
                 if let session = history.active {
@@ -34,27 +36,30 @@ struct FocusCheckInView: View {
                 } else {
                     setup
                     predictions
-                }
-                if let scores = history.pilotScores {
-                    Section {
-                        DisclosureGroup("Verifica del pilot") {
-                            LabeledContent("Sessioni valutate", value: scores.count.formatted())
-                                .accessibilityElement(children: .ignore)
-                                .accessibilityLabel("Sessioni valutate")
-                                .accessibilityValue(scores.count.formatted())
-                                .accessibilityIdentifier("pilotSessionCount")
-                            LabeledContent("Brier · Modello di partenza", value: scores.base.formatted(.number.precision(.fractionLength(3))))
-                            LabeledContent("Brier · Durata ed energia", value: scores.personal.formatted(.number.precision(.fractionLength(3))))
-                            LabeledContent("Brier · Con il sonno", value: scores.withSleep.formatted(.number.precision(.fractionLength(3))))
-                        }
-                    }
+                    sleep
                 }
             }
-            .navigationTitle("Focus Check-in")
+            .navigationTitle(greeting)
+            .navigationSubtitle(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+            .toolbarTitleDisplayMode(.inlineLarge)
+            .listSectionSpacing(.compact)
             .scrollDismissesKeyboard(.interactively)
+            .safeAreaBar(edge: .bottom) {
+                if history.active == nil {
+                    Button(action: beginSession) {
+                        Text("Start focus")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .tint(.brand)
+                    .disabled(!hasValidDuration || !hasValidSleep || energy == nil || history.failed || starting || requestingHealth)
+                    .padding()
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .keyboard) {
-                    Button("Fine", action: dismissKeyboard)
+                    Button("Done", action: dismissKeyboard)
                 }
             }
         }
@@ -73,44 +78,100 @@ struct FocusCheckInView: View {
         .onChange(of: history.active?.sessionID, updateEstimates)
     }
 
+    private var greeting: LocalizedStringResource {
+        switch calendar.component(.hour, from: .now) {
+        case 5..<12: "Good morning"
+        case 12..<18: "Good afternoon"
+        default: "Good evening"
+        }
+    }
+
     private var setup: some View {
-        Section("Sessione") {
-            TextField("Durata in minuti", value: $minutes, format: .number.grouping(.never))
-                .keyboardType(.numberPad)
-                .focused($focusedField, equals: .duration)
-                .accessibilityIdentifier("plannedMinutes")
-            Picker("Energia iniziale", selection: $energy) {
-                Text("Seleziona").tag(nil as FocusEnergy?)
-                ForEach(FocusEnergy.allCases) { level in
-                    Text(level.title).tag(Optional(level))
+        Group {
+            Section {
+                StateRing(phase: .checkIn)
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
+            }
+            Section("How’s your energy?") {
+                // Side by side normally; stacked when the text is too large for three columns.
+                (dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout()) : AnyLayout(HStackLayout())) {
+                    ForEach(FocusEnergy.allCases) { level in
+                        let dot = switch level {
+                        case .low: 8.0
+                        case .medium: 14.0
+                        case .high: 20.0
+                        }
+                        Button {
+                            energy = level
+                        } label: {
+                            VStack {
+                                Circle()
+                                    .frame(width: dot, height: dot)
+                                    .frame(height: 24)
+                                Text(level.title)
+                                    .font(.subheadline)
+                            }
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, minHeight: 72)
+                            .foregroundStyle(energy == level ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                            .background(energy == level ? AnyShapeStyle(Color.brand) : AnyShapeStyle(.fill.tertiary),
+                                        in: .rect(cornerRadius: 16))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(energy == level ? .isSelected : [])
+                    }
+                }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
+            }
+            Section("Focus for") {
+                Stepper {
+                    HStack {
+                        TextField("Minutes", value: $minutes, format: .number.grouping(.never), prompt: Text(verbatim: "0"))
+                            .keyboardType(.numberPad)
+                            .font(.title.monospacedDigit())
+                            .fixedSize()
+                            .focused($focusedField, equals: .duration)
+                            .accessibilityIdentifier("plannedMinutes")
+                        Text("min")
+                            .foregroundStyle(.secondary)
+                    }
+                } onIncrement: {
+                    stepMinutes(by: 5)
+                } onDecrement: {
+                    stepMinutes(by: -5)
+                }
+                if let minutes, let energy, history.suggestsExtension(minutes: minutes, energy: energy) {
+                    Button("Try 10 more minutes") { self.minutes = minutes + 10 }
                 }
             }
-            .accessibilityIdentifier("initialEnergy")
-            TextField("Ore di sonno (facoltativo)", value: $manualSleepHours, format: .number)
+        }
+        .disabled(starting)
+    }
+
+    private var sleep: some View {
+        Section("Sleep (optional)") {
+            TextField("Hours of sleep", value: $manualSleepHours, format: .number)
                 .keyboardType(.decimalPad)
                 .focused($focusedField, equals: .sleep)
             if !hasValidSleep {
-                Text("Inserisci un valore tra 0 e 24 ore.")
+                Text("Enter a value between 0 and 24 hours.")
                     .foregroundStyle(.secondary)
             } else if let healthSleep, manualSleepHours == nil {
-                LabeledContent("Sonno da Salute", value: healthSleep.hours.formatted(.number.precision(.fractionLength(1))) + " h")
+                LabeledContent("Sleep from Health", value: healthSleep.hours.formatted(.number.precision(.fractionLength(1))) + " h")
             }
             if sleepReader.isAvailable {
                 if readsSleepFromHealth {
-                    Button("Disattiva lettura da Salute", action: disableHealth)
+                    Button("Stop reading from Health", action: disableHealth)
                 } else {
-                    Button("Leggi il sonno da Salute", action: enableHealth)
+                    Button("Read sleep from Health", action: enableHealth)
                         .disabled(requestingHealth)
                 }
                 if let healthMessage {
                     Text(healthMessage).foregroundStyle(.secondary)
                 }
             }
-            if let minutes, let energy, history.suggestsExtension(minutes: minutes, energy: energy) {
-                Button("Prova 10 minuti in più") { self.minutes = minutes + 10 }
-            }
-            Button("Inizia sessione", action: beginSession)
-                .disabled(!hasValidDuration || !hasValidSleep || energy == nil || history.failed || starting || requestingHealth)
         }
         .disabled(starting)
     }
@@ -118,13 +179,13 @@ struct FocusCheckInView: View {
     private var predictions: some View {
         Section {
             if !hasValidDuration {
-                Text("Inserisci una durata tra 5 e 180 minuti.")
+                Text("Enter a length between 5 and 180 minutes.")
                     .foregroundStyle(.secondary)
             } else if energy == nil {
-                Text("Seleziona l’energia per vedere le stime.")
+                Text("Pick your energy to see the estimates.")
                     .foregroundStyle(.secondary)
             } else if predictionFailed {
-                Label("Impossibile calcolare la stima.", systemImage: "exclamationmark.circle")
+                Label("Can’t calculate the estimate.", systemImage: "exclamationmark.circle")
             } else {
                 ForEach(estimates) { estimate in
                     LabeledContent {
@@ -132,8 +193,8 @@ struct FocusCheckInView: View {
                             .monospacedDigit()
                     } label: {
                         if estimate.minutes == minutes {
-                            Text("\(estimate.minutes) min · Durata scelta")
-                                .fontWeight(.semibold)
+                            Text("\(estimate.minutes) min · Your pick")
+                                .bold()
                         } else {
                             Text("\(estimate.minutes) min")
                         }
@@ -142,14 +203,19 @@ struct FocusCheckInView: View {
                 }
             }
         } header: {
-            Text("Probabilità che la durata sia gestibile")
+            Text("Chance this length is manageable")
         } footer: {
             if history.model.personal != nil {
-                Text("Stime adattate al tuo storico.")
+                Text("Estimates adapted to your history.")
             } else {
-                Text("Stime basate su sessioni simulate.")
+                Text("Estimates based on simulated sessions.")
             }
         }
+    }
+
+    private func stepMinutes(by step: Int) {
+        let range = DurationEstimate.allowedMinutes
+        minutes = min(max((minutes ?? 45) + step, range.lowerBound), range.upperBound)
     }
 
     private func dismissKeyboard() {
@@ -183,7 +249,7 @@ struct FocusCheckInView: View {
                 readsSleepFromHealth = true
                 await refreshSleep()
             } catch {
-                healthMessage = "Impossibile accedere a Salute. Puoi inserire le ore manualmente."
+                healthMessage = "Can’t access Health. You can enter the hours yourself."
             }
         }
     }
@@ -200,7 +266,7 @@ struct FocusCheckInView: View {
         let result = try? await sleepReader.sleep(before: .now)
         guard readsSleepFromHealth else { return }
         healthSleep = result
-        healthMessage = result == nil ? "Nessun dato di sonno disponibile." : nil
+        healthMessage = result == nil ? "No sleep data available." : nil
         updateEstimates()
     }
 

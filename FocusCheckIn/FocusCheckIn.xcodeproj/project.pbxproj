@@ -19,6 +19,8 @@
 		11000000000000000000000B /* Personalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12000000000000000000000D; };
 		11000000000000000000000C /* FocusHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12000000000000000000000E; };
 		11000000000000000000000D /* FocusSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12000000000000000000000F; };
+		110000000000000000000020 /* StateRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120000000000000000000020; };
+		110000000000000000000021 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120000000000000000000021; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -47,6 +49,8 @@
 		12000000000000000000000D /* Personalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Personalization.swift; sourceTree = "<group>"; };
 		12000000000000000000000E /* FocusHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusHistory.swift; sourceTree = "<group>"; };
 		12000000000000000000000F /* FocusSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusSessionView.swift; sourceTree = "<group>"; };
+		120000000000000000000020 /* StateRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateRing.swift; sourceTree = "<group>"; };
+		120000000000000000000021 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
 		120000000000000000000010 /* FocusCheckIn.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FocusCheckIn.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -75,6 +79,8 @@
 				12000000000000000000000D,
 				12000000000000000000000E,
 				12000000000000000000000F,
+				120000000000000000000020,
+				120000000000000000000021,
 				120000000000000000000010,
 			);
 			path = App;
@@ -135,9 +141,9 @@
 			};
 			buildConfigurationList = 180000000000000000000001;
 			compatibilityVersion = "Xcode 14.0";
-			developmentRegion = it;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (it, Base);
+			knownRegions = (en, Base);
 			mainGroup = 140000000000000000000001;
 			productRefGroup = 140000000000000000000003;
 			projectDirPath = "";
@@ -167,6 +173,8 @@
 				11000000000000000000000B,
 				11000000000000000000000C,
 				11000000000000000000000D,
+				110000000000000000000020,
+				110000000000000000000021,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -212,7 +220,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Focus Check-in";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Focus Check-in legge la durata del sonno per adattare sul dispositivo le stime delle tue sessioni.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Focus Check-in reads how long you slept to adapt your session estimates on this device.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = it.giuseppedidonna.focuscheckin;
@@ -229,7 +237,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Focus Check-in";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Focus Check-in legge la durata del sonno per adattare sul dispositivo le stime delle tue sessioni.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Focus Check-in reads how long you slept to adapt your session estimates on this device.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = it.giuseppedidonna.focuscheckin;

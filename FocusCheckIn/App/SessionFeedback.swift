@@ -10,12 +10,12 @@ enum SessionFeedback: String, Identifiable {
 
     var title: LocalizedStringResource {
         switch self {
-        case .rightLength: "Durata giusta"
-        case .couldContinue: "Avrei continuato"
-        case .tooLong: "Durata troppo lunga"
-        case .tired: "Per stanchezza"
-        case .taskFinished: "Avevo finito il compito"
-        case .interrupted: "Per un imprevisto"
+        case .rightLength: "The length felt right"
+        case .couldContinue: "I could have kept going"
+        case .tooLong: "It felt too long"
+        case .tired: "I felt tired"
+        case .taskFinished: "I finished the task"
+        case .interrupted: "Something came up"
         }
     }
 

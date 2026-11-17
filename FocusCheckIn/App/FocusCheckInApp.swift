@@ -6,7 +6,14 @@ struct FocusCheckInApp: App {
 
     var body: some Scene {
         WindowGroup {
-            FocusCheckInView(history: history)
+            TabView {
+                Tab("Focus", systemImage: "target") {
+                    FocusCheckInView(history: history)
+                }
+                Tab("Insights", systemImage: "chart.line.uptrend.xyaxis") {
+                    InsightsView(history: history)
+                }
+            }
         }
     }
 
