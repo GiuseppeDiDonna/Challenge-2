@@ -2,42 +2,56 @@ import XCTest
 
 final class FocusCheckInUITests: XCTestCase {
     @MainActor
-    func testPredictionUpdatesAndDurationBoundaries() {
+    func testRingOpensCheckInAndTimerWheelKeepsItsRange() {
         let app = isolatedApp()
         app.launch()
 
-        let duration = app.textFields["plannedMinutes"]
-        XCTAssertEqual(duration.value as? String, "45")
-        XCTAssertTrue(app.staticTexts["Pick your energy to see the estimates."].exists)
+        selectFocusTab(app)
+        XCTAssertTrue(app.staticTexts["Tap the ball to check in"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Start my session"].exists)
+        openCheckIn(app)
+        XCTAssertTrue(app.staticTexts["How’s your energy today?"].exists)
 
-        selectEnergy("Medium", in: app)
-        // Reference percentages from the bundled synthetic-v1 model on macOS.
-        assertVisible(["35 min", "45 min · Your pick", "55 min", "70.7%", "68.5%", "66.2%"], in: app)
+        XCTAssertEqual(hours(app).value as? String, "00 o’clock")
+        XCTAssertEqual(minutes(app).value as? String, "45 minutes")
+        XCTAssertFalse(app.buttons["Start my session"].isEnabled, "Energy is a model input: no start before choosing it")
+        app.buttons["Steady"].tap()
+        XCTAssertTrue(app.buttons["Start my session"].isEnabled)
 
-        selectEnergy("High", in: app)
-        assertVisible(["82.2%", "80.7%", "79.0%"], in: app)
-        XCTAssertFalse(app.staticTexts["68.5%"].exists)
+        // The wheel loops through 00:00 and up to 23:45: it has to come back to 15 minutes...
+        minutes(app).adjust(toPickerWheelValue: "00")
+        XCTAssertTrue(waitForValues(app, hours: "00 o’clock", minutes: "15 minutes"), "\(String(describing: hours(app).value)) \(String(describing: minutes(app).value))")
+        // ...and to 3 hours.
+        hours(app).adjust(toPickerWheelValue: "05")
+        XCTAssertTrue(waitForValues(app, hours: "03 o’clock", minutes: "00 minutes"), "\(String(describing: hours(app).value)) \(String(describing: minutes(app).value))")
+        // Going around midnight, the nearest end is 15 minutes.
+        hours(app).adjust(toPickerWheelValue: "23")
+        XCTAssertTrue(waitForValues(app, hours: "00 o’clock", minutes: "15 minutes"), "\(String(describing: hours(app).value)) \(String(describing: minutes(app).value))")
+    }
 
-        replaceDuration(with: "5", in: app)
-        assertVisible(["5 min · Your pick", "15 min"], in: app)
-        XCTAssertFalse(app.staticTexts["-5 min"].exists)
-        XCTAssertFalse(app.staticTexts["25 min"].exists)
+    @MainActor
+    func testCountdownMatchesTheWheelAfterTheFirstSpin() {
+        let app = isolatedApp()
+        app.launch()
+        openCheckIn(app)
+        app.buttons["Steady"].tap()
+        hours(app).adjust(toPickerWheelValue: "01")
+        minutes(app).adjust(toPickerWheelValue: "30")
+        app.buttons["Start my session"].tap()
 
-        replaceDuration(with: "180", in: app)
-        assertVisible(["170 min", "180 min · Your pick"], in: app)
-        XCTAssertFalse(app.staticTexts["190 min"].exists)
-
-        replaceDuration(with: "181", in: app)
-        assertVisible(["Enter a length between 5 and 180 minutes."], in: app)
-        XCTAssertFalse(app.staticTexts["180 min · Your pick"].exists)
+        let remaining = app.descendants(matching: .any)["Time remaining"].firstMatch
+        XCTAssertTrue(remaining.waitForExistence(timeout: 5))
+        let value = remaining.value as? String ?? ""
+        XCTAssertTrue(value.hasPrefix("90 minutes") || value.hasPrefix("89 minutes"), value)
     }
 
     @MainActor
     func testEarlyStopAndFeedbackSurviveRelaunchWithoutSleep() {
         let app = isolatedApp()
         app.launch()
-        selectEnergy("High", in: app)
-        app.buttons["Start focus"].tap()
+        openCheckIn(app)
+        app.buttons["Charged"].tap()
+        app.buttons["Start my session"].tap()
 
         app.terminate()
         app.launch()
@@ -49,7 +63,7 @@ final class FocusCheckInUITests: XCTestCase {
         app.terminate()
         app.launch()
         app.buttons["I felt tired"].tap()
-        XCTAssertTrue(app.textFields["plannedMinutes"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["ringButton"].waitForExistence(timeout: 5))
 
         app.terminate()
         app.launch()
@@ -60,6 +74,11 @@ final class FocusCheckInUITests: XCTestCase {
         let count = app.descendants(matching: .any)["pilotSessionCount"].firstMatch
         XCTAssertTrue(count.waitForExistence(timeout: 5))
         XCTAssertEqual(count.value as? String, "1")
+        // The bundled synthetic-v1 model gives 80.7% for 45 min with high energy; the outcome is 0, so Brier = 0.807².
+        let brier = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Starting model'")).firstMatch
+        XCTAssertTrue(brier.exists)
+        XCTAssertTrue(brier.label.contains("0.651") || (brier.value as? String)?.contains("0.651") == true,
+                      "\(brier.label) | \(String(describing: brier.value))")
     }
 
     @MainActor
@@ -73,36 +92,48 @@ final class FocusCheckInUITests: XCTestCase {
         XCTAssertTrue(app.buttons["I could have kept going"].exists)
         XCTAssertFalse(app.buttons["I felt tired"].exists)
         finished.tap()
-        XCTAssertTrue(app.textFields["plannedMinutes"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["ringButton"].waitForExistence(timeout: 5))
     }
 
     @MainActor
     private func isolatedApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US",
-                                "-focusTestHistory", UUID().uuidString, "-readsSleepFromHealth", "NO"]
+                                "-focusTestHistory", UUID().uuidString, "-readsSleepFromHealth", "NO",
+                                "-userName", "Tester"]
         return app
     }
 
+    /// A launch has sometimes opened on another tab (seen on "Block" in 2 of 4 runs, not reproduced by hand): start from Focus.
     @MainActor
-    private func selectEnergy(_ label: String, in app: XCUIApplication) {
-        app.buttons[label].tap()
+    private func selectFocusTab(_ app: XCUIApplication) {
+        let focus = app.tabBars.buttons["Focus"]
+        if focus.waitForExistence(timeout: 5), !focus.isSelected { focus.tap() }
     }
 
     @MainActor
-    private func replaceDuration(with value: String, in app: XCUIApplication) {
-        let field = app.textFields["plannedMinutes"]
-        // The field is as wide as its digits: tap its trailing edge so the caret lands after them.
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
-        let previous = field.value as? String ?? ""
-        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: previous.count) + value)
-        app.buttons["Done"].tap()
-    }
+    private func hours(_ app: XCUIApplication) -> XCUIElement { app.pickerWheels.element(boundBy: 0) }
 
     @MainActor
-    private func assertVisible(_ labels: [String], in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-        for label in labels {
-            XCTAssertTrue(app.staticTexts[label].waitForExistence(timeout: 2), label, file: file, line: line)
+    private func minutes(_ app: XCUIApplication) -> XCUIElement { app.pickerWheels.element(boundBy: 1) }
+
+    /// The wheel snaps back a moment after the finger leaves it.
+    @MainActor
+    private func waitForValues(_ app: XCUIApplication, hours expectedHours: String, minutes expectedMinutes: String) -> Bool {
+        let deadline = Date.now.addingTimeInterval(5)
+        while Date.now < deadline {
+            if hours(app).value as? String == expectedHours, minutes(app).value as? String == expectedMinutes { return true }
+            Thread.sleep(forTimeInterval: 0.2)
         }
+        return false
+    }
+
+    @MainActor
+    private func openCheckIn(_ app: XCUIApplication) {
+        selectFocusTab(app)
+        let ring = app.buttons["ringButton"]
+        XCTAssertTrue(ring.waitForExistence(timeout: 5))
+        ring.tap()
+        XCTAssertTrue(app.staticTexts["How’s your energy today?"].waitForExistence(timeout: 5))
     }
 }

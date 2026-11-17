@@ -21,6 +21,8 @@
 		11000000000000000000000D /* FocusSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12000000000000000000000F; };
 		110000000000000000000020 /* StateRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120000000000000000000020; };
 		110000000000000000000021 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120000000000000000000021; };
+		110000000000000000000022 /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120000000000000000000022; };
+		110000000000000000000023 /* StateRing@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 120000000000000000000023; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +53,8 @@
 		12000000000000000000000F /* FocusSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusSessionView.swift; sourceTree = "<group>"; };
 		120000000000000000000020 /* StateRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateRing.swift; sourceTree = "<group>"; };
 		120000000000000000000021 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
+		120000000000000000000022 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
+		120000000000000000000023 /* StateRing@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "StateRing@3x.png"; sourceTree = "<group>"; };
 		120000000000000000000010 /* FocusCheckIn.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FocusCheckIn.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -81,6 +85,8 @@
 				12000000000000000000000F,
 				120000000000000000000020,
 				120000000000000000000021,
+				120000000000000000000022,
+				120000000000000000000023,
 				120000000000000000000010,
 			);
 			path = App;
@@ -153,7 +159,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		160000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		160000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (110000000000000000000023); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -175,6 +181,7 @@
 				11000000000000000000000D,
 				110000000000000000000020,
 				110000000000000000000021,
+				110000000000000000000022,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
