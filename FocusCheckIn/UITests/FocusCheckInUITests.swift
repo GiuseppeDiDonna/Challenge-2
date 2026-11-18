@@ -96,6 +96,27 @@ final class FocusCheckInUITests: XCTestCase {
     }
 
     @MainActor
+    func testInsightsShowsRequestedChartsAndSleepUnlockProgress() {
+        let app = isolatedApp()
+        app.launch()
+        app.tabBars.buttons["Insights"].tap()
+
+        XCTAssertTrue(app.staticTexts["Daily focus time"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Planned vs. focused"].exists)
+        XCTAssertTrue(app.staticTexts["Sleep and focus"].exists)
+        XCTAssertTrue(app.staticTexts["A few more sessions unlock this chart"].exists)
+
+        let progress = app.descendants(matching: .any)["sleepUnlockProgress"].firstMatch
+        XCTAssertTrue(progress.exists)
+        XCTAssertTrue(progress.label.contains("0 of 5 sessions"))
+
+        let remaining = app.descendants(matching: .any)["sleepSessionsRemaining"].firstMatch
+        XCTAssertTrue(remaining.exists)
+        XCTAssertTrue(remaining.label.contains("5 more to go"))
+        XCTAssertFalse(app.buttons["Pilot check"].exists)
+    }
+
+    @MainActor
     private func isolatedApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US",

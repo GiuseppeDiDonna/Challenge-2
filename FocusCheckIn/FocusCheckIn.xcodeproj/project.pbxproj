@@ -23,6 +23,7 @@
 		110000000000000000000021 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120000000000000000000021; };
 		110000000000000000000022 /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120000000000000000000022; };
 		110000000000000000000023 /* StateRing@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 120000000000000000000023; };
+		110000000000000000000024 /* InsightChartData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120000000000000000000024; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -55,6 +56,7 @@
 		120000000000000000000021 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
 		120000000000000000000022 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
 		120000000000000000000023 /* StateRing@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "StateRing@3x.png"; sourceTree = "<group>"; };
+		120000000000000000000024 /* InsightChartData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightChartData.swift; sourceTree = "<group>"; };
 		120000000000000000000010 /* FocusCheckIn.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FocusCheckIn.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -87,6 +89,7 @@
 				120000000000000000000021,
 				120000000000000000000022,
 				120000000000000000000023,
+				120000000000000000000024,
 				120000000000000000000010,
 			);
 			path = App;
@@ -182,6 +185,7 @@
 				110000000000000000000020,
 				110000000000000000000021,
 				110000000000000000000022,
+				110000000000000000000024,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
