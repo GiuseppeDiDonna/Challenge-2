@@ -2,72 +2,84 @@ import XCTest
 
 final class FocusCheckInUITests: XCTestCase {
     @MainActor
-    func testRingOpensCheckInAndTimerWheelKeepsItsRange() {
+    func testOneLongPressOpensEnergyThenTime() {
         let app = isolatedApp()
         app.launch()
+        XCTAssertTrue(ring(app).waitForExistence(timeout: 8))
+        ring(app).press(forDuration: 0.6)
+        XCTAssertTrue(app.staticTexts["Hold the rings to check in"].waitForExistence(timeout: 2))
 
-        selectFocusTab(app)
-        XCTAssertTrue(app.staticTexts["Tap the ball to check in"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["Start my session"].exists)
-        openCheckIn(app)
-        XCTAssertTrue(app.staticTexts["How’s your energy today?"].exists)
+        // The long press opens the choice; it stays open after lifting, and Cancel closes it.
+        let top = ring(app).coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.1))
+        let right = ring(app).coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5))
+        top.press(forDuration: 1.3)
+        XCTAssertTrue(app.staticTexts["Touch and turn to choose"].waitForExistence(timeout: 2))
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.staticTexts["Hold the rings to check in"].waitForExistence(timeout: 2))
 
-        XCTAssertEqual(hours(app).value as? String, "00 o’clock")
-        XCTAssertEqual(minutes(app).value as? String, "45 minutes")
-        XCTAssertFalse(app.buttons["Start my session"].isEnabled, "Energy is a model input: no start before choosing it")
-        app.buttons["Steady"].tap()
-        XCTAssertTrue(app.buttons["Start my session"].isEnabled)
+        // One long press, then a turn in a new touch sets the energy...
+        top.press(forDuration: 1.3)
+        right.press(forDuration: 0.1, thenDragTo: top, withVelocity: .slow, thenHoldForDuration: 0.1)
+        XCTAssertTrue(app.buttons["Energy · Low"].waitForExistence(timeout: 5))
+        // ...and the time is open at once, with no second long press.
+        XCTAssertTrue(app.staticTexts["Touch and turn to set the time"].exists)
+        XCTAssertEqual(ring(app).value as? String, "45 minutes")
 
-        // The wheel loops through 00:00 and up to 23:45: it has to come back to 15 minutes...
-        minutes(app).adjust(toPickerWheelValue: "00")
-        XCTAssertTrue(waitForValues(app, hours: "00 o’clock", minutes: "15 minutes"), "\(String(describing: hours(app).value)) \(String(describing: minutes(app).value))")
-        // ...and to 3 hours.
-        hours(app).adjust(toPickerWheelValue: "05")
-        XCTAssertTrue(waitForValues(app, hours: "03 o’clock", minutes: "00 minutes"), "\(String(describing: hours(app).value)) \(String(describing: minutes(app).value))")
-        // Going around midnight, the nearest end is 15 minutes.
-        hours(app).adjust(toPickerWheelValue: "23")
-        XCTAssertTrue(waitForValues(app, hours: "00 o’clock", minutes: "15 minutes"), "\(String(describing: hours(app).value)) \(String(describing: minutes(app).value))")
+        // Changing the energy keeps the choice open: turn again, no long press.
+        app.buttons["Energy · Low"].tap()
+        XCTAssertTrue(app.staticTexts["Touch and turn to choose"].waitForExistence(timeout: 2))
+        top.press(forDuration: 0.1, thenDragTo: right, withVelocity: .slow, thenHoldForDuration: 0.1)
+        XCTAssertTrue(app.buttons["Energy · Charged"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["End early"].exists)
     }
 
     @MainActor
-    func testCountdownMatchesTheWheelAfterTheFirstSpin() {
+    func testReleaseStartsSessionWithTurnedDuration() {
         let app = isolatedApp()
         app.launch()
-        openCheckIn(app)
-        app.buttons["Steady"].tap()
-        hours(app).adjust(toPickerWheelValue: "01")
-        minutes(app).adjust(toPickerWheelValue: "30")
-        app.buttons["Start my session"].tap()
+        setEnergy(app, clockwise: nil, expect: "Steady")
+        turnForTime(app, clockwise: true)
+        let value = remaining(app)
+        XCTAssertTrue(value.hasPrefix("75 minutes") || value.hasPrefix("74 minutes"), value)
+    }
 
-        let remaining = app.descendants(matching: .any)["Time remaining"].firstMatch
-        XCTAssertTrue(remaining.waitForExistence(timeout: 5))
-        let value = remaining.value as? String ?? ""
-        XCTAssertTrue(value.hasPrefix("90 minutes") || value.hasPrefix("89 minutes"), value)
+    @MainActor
+    func testShortestDurationIsFifteenMinutes() {
+        let app = isolatedApp()
+        app.launch()
+        setEnergy(app, clockwise: nil, expect: "Steady")
+        turnForTime(app, clockwise: false)
+        let value = remaining(app)
+        XCTAssertTrue(value.hasPrefix("15 minutes") || value.hasPrefix("14 minutes"), value)
     }
 
     @MainActor
     func testEarlyStopAndFeedbackSurviveRelaunchWithoutSleep() {
         let app = isolatedApp()
         app.launch()
-        openCheckIn(app)
-        app.buttons["Charged"].tap()
-        app.buttons["Start my session"].tap()
+        setEnergy(app, clockwise: true, expect: "Charged")
+        ring(app).tap()
 
         app.terminate()
         app.launch()
         let stop = app.buttons["End early"]
         XCTAssertTrue(stop.waitForExistence(timeout: 5))
         stop.tap()
-        XCTAssertTrue(app.buttons["I felt tired"].waitForExistence(timeout: 5))
+        app.buttons["End session"].tap()
+        XCTAssertTrue(app.buttons["Too tired"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Choose a reason"].isEnabled, "Done waits for a reason")
 
         app.terminate()
         app.launch()
-        app.buttons["I felt tired"].tap()
-        XCTAssertTrue(app.buttons["ringButton"].waitForExistence(timeout: 5))
+        app.buttons["Too tired"].tap()
+        app.buttons["Done"].tap()
+        skipBreak(app)
 
         app.terminate()
         app.launch()
-        app.tabBars.buttons["Insights"].tap()
+        let insights = app.buttons["Insights"]
+        XCTAssertTrue(insights.waitForExistence(timeout: 5))
+        insights.tap()
         let pilot = app.buttons["Pilot check"]
         XCTAssertTrue(pilot.waitForExistence(timeout: 5))
         pilot.tap()
@@ -87,21 +99,58 @@ final class FocusCheckInUITests: XCTestCase {
         app.launchArguments += ["-focusTestNearDeadline", "YES"]
         app.launch()
 
-        let finished = app.buttons["The length felt right"]
+        let finished = app.buttons["Just right"]
         XCTAssertTrue(finished.waitForExistence(timeout: 15))
-        XCTAssertTrue(app.buttons["I could have kept going"].exists)
-        XCTAssertFalse(app.buttons["I felt tired"].exists)
+        XCTAssertTrue(app.staticTexts["Session complete"].exists)
+        XCTAssertTrue(app.buttons["Too short"].exists)
+        XCTAssertFalse(app.buttons["Too tired"].exists)
+        app.buttons["A little more"].tap()
         finished.tap()
-        XCTAssertTrue(app.buttons["ringButton"].waitForExistence(timeout: 5))
+        app.buttons["Done"].tap()
+        skipBreak(app)
+    }
+
+    @MainActor
+    func testSkipClosesTheEndScreen() {
+        let app = isolatedApp()
+        app.launch()
+        setEnergy(app, clockwise: nil, expect: "Steady")
+        ring(app).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["Time remaining"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["End early"].tap()
+        app.buttons["End session"].tap()
+        XCTAssertTrue(app.staticTexts["You stopped early"].waitForExistence(timeout: 5))
+        app.buttons["Skip"].tap()
+        skipBreak(app)
+    }
+
+    @MainActor
+    func testPauseStopsTheCountdownAndResumes() {
+        let app = isolatedApp()
+        app.launch()
+        setEnergy(app, clockwise: nil, expect: "Steady")
+        ring(app).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["Time remaining"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Pause"].tap()
+        XCTAssertTrue(app.staticTexts["break left"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Suggested 3 min · after 0 min of focus"].exists)
+        let breakRing = app.descendants(matching: .any)["breakRing"].firstMatch
+        XCTAssertEqual(breakRing.value as? String, "3 minutes")
+        app.buttons["Resume now"].tap()
+        let value = remaining(app)
+        XCTAssertTrue(value.hasPrefix("44 minutes") || value.hasPrefix("45 minutes"), value)
     }
 
     @MainActor
     func testInsightsShowsRequestedChartsAndSleepUnlockProgress() {
         let app = isolatedApp()
         app.launch()
-        app.tabBars.buttons["Insights"].tap()
+        let insights = app.buttons["Insights"]
+        XCTAssertTrue(insights.waitForExistence(timeout: 5))
+        insights.tap()
 
         XCTAssertTrue(app.staticTexts["Daily focus time"].waitForExistence(timeout: 5))
+        app.swipeUp()
         XCTAssertTrue(app.staticTexts["Planned vs. focused"].exists)
         XCTAssertTrue(app.staticTexts["Sleep and focus"].exists)
         XCTAssertTrue(app.staticTexts["A few more sessions unlock this chart"].exists)
@@ -114,6 +163,9 @@ final class FocusCheckInUITests: XCTestCase {
         XCTAssertTrue(remaining.exists)
         XCTAssertTrue(remaining.label.contains("5 more to go"))
         XCTAssertFalse(app.buttons["Pilot check"].exists)
+        // A pushed screen with the standard Back button.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.staticTexts["Hold the rings to check in"].waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -125,36 +177,58 @@ final class FocusCheckInUITests: XCTestCase {
         return app
     }
 
-    /// A launch has sometimes opened on another tab (seen on "Block" in 2 of 4 runs, not reproduced by hand): start from Focus.
     @MainActor
-    private func selectFocusTab(_ app: XCUIApplication) {
-        let focus = app.tabBars.buttons["Focus"]
-        if focus.waitForExistence(timeout: 5), !focus.isSelected { focus.tap() }
+    private func ring(_ app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)["ringButton"].firstMatch
     }
 
+    /// Holds past the 1 s arm time; turns a quarter in the same touch, or (no direction) lifts and taps to confirm.
     @MainActor
-    private func hours(_ app: XCUIApplication) -> XCUIElement { app.pickerWheels.element(boundBy: 0) }
-
-    @MainActor
-    private func minutes(_ app: XCUIApplication) -> XCUIElement { app.pickerWheels.element(boundBy: 1) }
-
-    /// The wheel snaps back a moment after the finger leaves it.
-    @MainActor
-    private func waitForValues(_ app: XCUIApplication, hours expectedHours: String, minutes expectedMinutes: String) -> Bool {
-        let deadline = Date.now.addingTimeInterval(5)
-        while Date.now < deadline {
-            if hours(app).value as? String == expectedHours, minutes(app).value as? String == expectedMinutes { return true }
-            Thread.sleep(forTimeInterval: 0.2)
+    private func holdAndTurn(_ app: XCUIApplication, clockwise: Bool? = nil) {
+        let control = ring(app)
+        XCTAssertTrue(control.waitForExistence(timeout: 5))
+        let top = control.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.1))
+        let right = control.coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5))
+        guard let clockwise else {
+            top.press(forDuration: 1.3)
+            top.tap()
+            return
         }
-        return false
+        let from = clockwise ? top : right, to = clockwise ? right : top
+        from.press(forDuration: 1.3, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
+    }
+
+    /// After the energy the time is open: turn about 150° (25 min, one turn = 60 min) in one touch and release to start.
+    /// A straight drag that passes beside the centre, outside its dead zone, sweeps the widest angle.
+    @MainActor
+    private func turnForTime(_ app: XCUIApplication, clockwise: Bool) {
+        let control = ring(app)
+        let upperRight = control.coordinate(withNormalizedOffset: .init(dx: 0.919, dy: 0.265))
+        let lowerLeft = control.coordinate(withNormalizedOffset: .init(dx: 0.265, dy: 0.919))
+        let from = clockwise ? upperRight : lowerLeft, to = clockwise ? lowerLeft : upperRight
+        from.press(forDuration: 0.1, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
     }
 
     @MainActor
-    private func openCheckIn(_ app: XCUIApplication) {
-        selectFocusTab(app)
-        let ring = app.buttons["ringButton"]
-        XCTAssertTrue(ring.waitForExistence(timeout: 5))
-        ring.tap()
-        XCTAssertTrue(app.staticTexts["How’s your energy today?"].waitForExistence(timeout: 5))
+    private func setEnergy(_ app: XCUIApplication, clockwise: Bool?, expect title: String) {
+        holdAndTurn(app, clockwise: clockwise)
+        XCTAssertTrue(app.buttons["Energy · \(title)"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Touch and turn to set the time"].exists)
+    }
+
+    /// After the feedback a break starts: skip it to get back to the Home.
+    @MainActor
+    private func skipBreak(_ app: XCUIApplication) {
+        let skip = app.buttons["Skip break"]
+        XCTAssertTrue(skip.waitForExistence(timeout: 5))
+        skip.tap()
+        XCTAssertTrue(ring(app).waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func remaining(_ app: XCUIApplication) -> String {
+        let element = app.descendants(matching: .any)["Time remaining"].firstMatch
+        XCTAssertTrue(element.waitForExistence(timeout: 5))
+        return element.value as? String ?? ""
     }
 }

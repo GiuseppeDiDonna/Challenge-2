@@ -100,8 +100,32 @@ struct VerifyPersonalization {
             DateInterval(start: now.addingTimeInterval(-hour), end: now.addingTimeInterval(hour)),
         ], before: now)
         precondition(sleep?.hours == 9 && SleepObservation.aggregate([], before: now) == nil)
+        // Breaks: a quarter of the focus, 3 to 15 minutes; the countdown stops during a break.
+        precondition(FocusBreak.suggestedMinutes(afterFocus: 24) == 6 && FocusBreak.suggestedMinutes(afterFocus: 45) == 11)
+        precondition(FocusBreak.suggestedMinutes(afterFocus: 4) == 3 && FocusBreak.suggestedMinutes(afterFocus: 120) == 15)
+        let paused = FocusHistory(directory: directory.appending(path: "breaks"))
+        let start = now.addingTimeInterval(-2 * hour)
+        let focus = FocusSession(startedAt: start, plannedMinutes: 45, energy: .medium, sleep: nil, sleepDeviation: nil, forecast: nil)
+        paused.start(focus)
+        paused.pause(focus, now: start.addingTimeInterval(24 * 60))
+        precondition(paused.openBreak?.suggestedMinutes == 6 && paused.openBreak?.duringSession == true)
+        precondition(focus.deadline(at: start.addingTimeInterval(30 * 60)) == start.addingTimeInterval(51 * 60))
+        paused.pause(focus, now: start.addingTimeInterval(25 * 60))
+        precondition(paused.breaks.count == 1)
+        paused.resume(focus, now: start.addingTimeInterval(34 * 60))
+        precondition(paused.openBreak == nil && focus.pausedSeconds == 600)
+        paused.pause(focus, now: start.addingTimeInterval(46 * 60))
+        precondition(paused.openBreak?.focusSinceLastBreak == 12 && paused.openBreak?.minuteInSession == 36)
+        paused.finish(focus, now: start.addingTimeInterval(50 * 60))
+        precondition(focus.actualMinutes == 36 && focus.feedbackChoices == SessionFeedback.stoppedEarly && paused.openBreak == nil)
+        paused.record(.skipped, for: focus)
+        paused.startBreak(after: focus, now: start.addingTimeInterval(51 * 60))
+        precondition(paused.active == nil && paused.openBreak?.duringSession == false && paused.openBreak?.suggestedMinutes == 3)
+        paused.endBreak(paused.openBreak!, now: start.addingTimeInterval(54 * 60))
+        precondition(paused.openBreak == nil && FocusHistory(directory: directory.appending(path: "breaks")).breaks.count == 3)
+
         let percent = FloatingPointFormatStyle<Double>.Percent.percent.precision(.fractionLength(1))
         print("Stima iniziale 70%. Completamenti: \(successScore.formatted(percent)). Stop per stanchezza: \(fatigueScore.formatted(percent)).")
-        print("Persistenza, aggiornamenti senza duplicati, sonno, estensione e Brier: OK.")
+        print("Persistenza, aggiornamenti senza duplicati, sonno, estensione, Brier e pause: OK.")
     }
 }

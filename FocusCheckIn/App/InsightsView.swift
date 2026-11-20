@@ -9,36 +9,34 @@ struct InsightsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    Text("A clearer view of your focus routine.")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.ink.opacity(0.65))
-                        .padding(.horizontal, 4)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("A clearer view of your focus routine.")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.ink.opacity(0.65))
+                    .padding(.horizontal, 4)
 
-                    dailyFocusCard
-                    plannedAndActualCard
-                    sleepAndFocusCard
-                    pilotCheck
+                dailyFocusCard
+                plannedAndActualCard
+                sleepAndFocusCard
+                pilotCheck
 
-                    Text("Charts summarize completed sessions. The sleep chart shows personal history, not cause and effect.")
-                        .font(.footnote)
-                        .foregroundStyle(Color.ink.opacity(0.55))
-                        .padding(.horizontal, 4)
-                        .accessibilityIdentifier("insightsFootnote")
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 28)
-                .frame(maxWidth: 600)
-                .frame(maxWidth: .infinity)
+                Text("Charts summarize completed sessions. The sleep chart shows personal history, not cause and effect.")
+                    .font(.footnote)
+                    .foregroundStyle(Color.ink.opacity(0.55))
+                    .padding(.horizontal, 4)
+                    .accessibilityIdentifier("insightsFootnote")
             }
-            .background(Color.surface.ignoresSafeArea())
-            .scrollBounceBehavior(.basedOnSize)
-            .navigationTitle("Insights")
-            .toolbarTitleDisplayMode(.inlineLarge)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 28)
+            .frame(maxWidth: 600)
+            .frame(maxWidth: .infinity)
         }
+        .background(Color.surface.ignoresSafeArea())
+        .scrollBounceBehavior(.basedOnSize)
+        .navigationTitle("Insights")
+        .toolbarTitleDisplayMode(.inlineLarge)
     }
 
     private var dailyFocusCard: some View {
@@ -174,7 +172,7 @@ struct InsightsView: View {
             .font(.subheadline.weight(.medium))
             .foregroundStyle(Color.ink)
             .padding(16)
-            .background(.white, in: .rect(cornerRadius: 18))
+            .background(Color.card, in: .rect(cornerRadius: 18))
         }
     }
 
@@ -299,7 +297,7 @@ struct InsightsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white, in: .rect(cornerRadius: 22))
+        .background(Color.card, in: .rect(cornerRadius: 22))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
     }

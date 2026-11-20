@@ -6,23 +6,10 @@ struct FocusCheckInApp: App {
 
     var body: some Scene {
         WindowGroup {
-            TabView {
-                Tab("Focus", systemImage: "target") {
-                    FocusCheckInView(history: history)
-                }
-                Tab("Insights", systemImage: "chart.line.uptrend.xyaxis") {
-                    InsightsView(history: history)
-                }
-                Tab {
-                    ContentUnavailableView("Block", systemImage: "lock", description: Text("Coming soon"))
-                } label: {
-                    // The design draws the lock as an outline, also when it is not selected.
-                    Label("Block", systemImage: "lock").environment(\.symbolVariants, .none)
-                }
-            }
-            .tint(.brand)
-            // The Sketch design only exists in light mode; dark variants come from the designers.
-            .preferredColorScheme(.light)
+            // One screen, one control: Insights opens as a sheet from the Home.
+            FocusCheckInView(history: history)
+                .tint(.brand)
+                // The Sketch design only exists in light mode; dark variants come from the designers.
         }
     }
 

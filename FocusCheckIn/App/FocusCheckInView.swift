@@ -8,7 +8,6 @@ struct FocusCheckInView: View {
     @AppStorage("readsSleepFromHealth") private var readsSleepFromHealth = false
     @AppStorage("userName") private var userName = ""
     @AppStorage("askedForName") private var askedForName = false
-    @State private var checkingIn = false
     @State private var minutes = 45
     @State private var energy: FocusEnergy?
     @State private var starting = false
@@ -21,9 +20,15 @@ struct FocusCheckInView: View {
         Group {
             if history.active != nil || history.failed {
                 sessionForm
+            } else if let item = history.openBreak {
+                RestScreen(item: item, history: history)
             } else {
-                HomeScreen(greeting: greeting, period: period, checkingIn: $checkingIn, energy: $energy, minutes: $minutes,
-                           canStart: energy != nil && !starting && HomeScreen.minutesRange.contains(minutes), start: beginSession)
+                NavigationStack {
+                    HomeScreen(greeting: greeting, energy: $energy, minutes: $minutes, starting: starting,
+                               insights: InsightsView(history: history), start: beginSession)
+                        // The greeting sits beside the Insights button, so the Home draws its own top row.
+                        .toolbar(.hidden, for: .navigationBar)
+                }
             }
         }
         .task {
@@ -34,7 +39,6 @@ struct FocusCheckInView: View {
             guard scenePhase == .active else { return }
             refreshHistory()
         }
-        .onChange(of: history.active?.sessionID) { checkingIn = false }
         .alert("What’s your name?", isPresented: $askingName) {
             TextField("Name", text: $nameDraft)
             Button("Save") {
@@ -47,22 +51,16 @@ struct FocusCheckInView: View {
         }
     }
 
-    /// A session in progress, or its feedback. Still the plain list: the full-screen session is the next slice.
-    private var sessionForm: some View {
-        NavigationStack {
-            Form {
-                if history.failed {
-                    Section {
-                        Label("Can’t open your local history.", systemImage: "exclamationmark.circle")
-                        Button("Try again", action: refreshHistory)
-                    }
-                }
-                if let session = history.active {
-                    FocusSessionView(session: session, history: history)
-                }
+    /// A session in progress, or its feedback, in full screen.
+    @ViewBuilder private var sessionForm: some View {
+        if history.failed {
+            ContentUnavailableView {
+                Label("Can’t open your local history.", systemImage: "exclamationmark.circle")
+            } actions: {
+                Button("Try again", action: refreshHistory)
             }
-            .navigationTitle(greeting)
-            .toolbarTitleDisplayMode(.inlineLarge)
+        } else if let session = history.active {
+            FocusSessionView(session: session, history: history)
         }
     }
 
